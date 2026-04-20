@@ -1,0 +1,295 @@
+const VIEWS = [
+  { id: "v-gantt", ms: 35000 },
+  { id: "v-team",  ms: 20000 },
+  { id: "v-done",  ms: 15000 },
+  { id: "v-alert", ms: 15000 },
+];
+
+const GANTT_MODES = ["Week", "Month"];
+let ganttModeIdx = 0;
+
+let allTasks   = [];
+let currentIdx = 0;
+let cycleTimer = null;
+let rafId      = null;
+let cycleStart = 0;
+
+// ── Clock ─────────────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  document.getElementById("clock-time").textContent =
+    now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+  document.getElementById("clock-date").textContent =
+    now.toLocaleDateString("en-IN", { weekday: "long", month: "long", day: "numeric" });
+}
+
+// ── Header stats ──────────────────────────────────────────────
+function updateHeaderStats() {
+  const active   = allTasks.filter(t => t.status !== "completed").length;
+  const inProg   = allTasks.filter(t => t.status === "in_progress").length;
+  const delayed  = allTasks.filter(t => computeStatus(t, allTasks) === "delayed").length;
+  const weekAgo  = new Date(Date.now() - 7 * 864e5).toISOString();
+  const doneWeek = allTasks.filter(t => t.status === "completed" && t.completedAt > weekAgo).length;
+
+  document.getElementById("hdr-stats").innerHTML = [
+    { val: active,   lbl: "Active",      color: "var(--tx)" },
+    { val: inProg,   lbl: "In Progress", color: "#60a5fa"   },
+    { val: delayed,  lbl: "Delayed",     color: "var(--warn)" },
+    { val: doneWeek, lbl: "Done / Week", color: "var(--ok)" },
+  ].map(s => `
+    <div class="hdr-stat">
+      <span class="hdr-stat-val" style="color:${s.color}">${s.val}</span>
+      <span class="hdr-stat-lbl">${s.lbl}</span>
+    </div>`).join('<div class="hdr-stat-divider"></div>');
+}
+
+// ── Dim at night ──────────────────────────────────────────────
+function applyDim() {
+  const h = new Date().getHours();
+  document.body.style.filter = (h >= 20 || h < 7) ? "brightness(0.35)" : "";
+}
+
+// ── Cycle bar ─────────────────────────────────────────────────
+function animateCycleBar(duration) {
+  const fill = document.getElementById("cycle-fill");
+  fill.style.transition = "none";
+  fill.style.width = "0%";
+  cycleStart = performance.now();
+  cancelAnimationFrame(rafId);
+  const tick = now => {
+    const pct = Math.min(((now - cycleStart) / duration) * 100, 100);
+    fill.style.width = pct + "%";
+    if (pct < 100) rafId = requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
+// ── View switching ────────────────────────────────────────────
+function hasAlerts() {
+  return allTasks.some(t => { const s = computeStatus(t, allTasks); return s === "delayed" || s === "blocked"; });
+}
+
+function showView(idx) {
+  document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+  const target = document.getElementById(VIEWS[idx].id);
+  if (target) target.classList.add("active");
+  animateCycleBar(VIEWS[idx].ms);
+  renderView(idx);
+
+  clearTimeout(cycleTimer);
+  cycleTimer = setTimeout(() => {
+    let next = (idx + 1) % VIEWS.length;
+    if (next === 3 && !hasAlerts()) next = 0;
+    if (next === 0) ganttModeIdx = (ganttModeIdx + 1) % GANTT_MODES.length;
+    currentIdx = next;
+    showView(next);
+  }, VIEWS[idx].ms);
+}
+
+function renderView(idx) {
+  const id = VIEWS[idx].id;
+  if (id === "v-gantt") renderGantt();
+  if (id === "v-team")  renderTeam();
+  if (id === "v-done")  renderCompleted();
+  if (id === "v-alert") renderAlerts();
+}
+
+// ── Gantt ─────────────────────────────────────────────────────
+function renderGanttLegend() {
+  const el = document.getElementById("gantt-legend");
+  if (!TEAM.length) { el.innerHTML = ""; return; }
+  el.innerHTML = TEAM.map(m => `
+    <div class="legend-item">
+      <span class="legend-dot" style="background:${m.color}"></span>
+      <span class="legend-name">${m.name}</span>
+    </div>`).join("");
+}
+
+function renderGantt() {
+  renderGanttLegend();
+  const wrap  = document.getElementById("gantt-wrap");
+  const tasks = allTasks.filter(t => t.startDate && t.endDate && t.status !== "completed");
+
+  if (!tasks.length) {
+    wrap.innerHTML = '<p class="empty-state" style="padding-top:80px">No active tasks yet</p>';
+    return;
+  }
+
+  const statusProgress = { completed: 100, in_progress: 60, not_started: 0, blocked: 0, delayed: 30 };
+
+  const ganttTasks = tasks.map(t => {
+    const member = TEAM.find(m => m.id === t.assignee);
+    const s      = computeStatus(t, allTasks);
+    return {
+      id:           t.id,
+      name:         t.name,
+      start:        t.startDate,
+      end:          t.endDate,
+      progress:     statusProgress[s] ?? 0,
+      dependencies: (t.dependsOn || []).join(", "),
+      custom_class: member ? `assignee-${member.id}` : "assignee-none",
+    };
+  });
+
+  wrap.innerHTML = '<svg id="gantt-svg"></svg>';
+
+  try {
+    new Gantt("#gantt-svg", ganttTasks, {
+      view_mode:   GANTT_MODES[ganttModeIdx],
+      bar_height:  38,
+      padding:     16,
+      date_format: "YYYY-MM-DD",
+      language:    "en",
+    });
+
+    injectMemberColors();
+  } catch (e) {
+    wrap.innerHTML = '<p class="empty-state" style="padding-top:80px">Could not render chart</p>';
+    console.error(e);
+  }
+}
+
+function injectMemberColors() {
+  const existing = document.getElementById("member-color-style");
+  if (existing) existing.remove();
+
+  const style = document.createElement("style");
+  style.id = "member-color-style";
+  style.textContent = TEAM.map(m => `
+    .assignee-${m.id} .bar            { fill: ${m.color} !important; opacity: .92; }
+    .assignee-${m.id} .bar-progress   { fill: ${m.color} !important; opacity: .55; }
+    .assignee-${m.id} .bar-label      { fill: #fff !important; font-weight: 600 !important; }
+  `).join("\n") + `
+    .assignee-none .bar          { fill: var(--tx3) !important; }
+    .assignee-none .bar-label    { fill: #fff !important; }
+  `;
+  document.head.appendChild(style);
+}
+
+// ── Team ──────────────────────────────────────────────────────
+function renderTeam() {
+  if (!TEAM.length) {
+    document.getElementById("team-grid").innerHTML = '<p class="empty-state">No team members yet</p>';
+    return;
+  }
+  document.getElementById("team-grid").innerHTML = TEAM.map(m => {
+    const active  = allTasks.filter(t => t.assignee === m.id && computeStatus(t, allTasks) === "in_progress");
+    const blocked = allTasks.filter(t => t.assignee === m.id && computeStatus(t, allTasks) === "blocked").length;
+    const done    = allTasks.filter(t => t.assignee === m.id && t.status === "completed" &&
+                      t.completedAt > new Date(Date.now()-7*864e5).toISOString()).length;
+    const avatarHtml = m.photo
+      ? `<img src="${m.photo}" class="tc-avatar-img" alt="${m.name}">`
+      : `<div class="tc-avatar-initials">${m.name.charAt(0).toUpperCase()}</div>`;
+
+    return `
+      <div class="team-card" style="--member-color:${m.color}">
+        <div class="team-card-accent"></div>
+        <div class="team-card-body">
+          <div class="tc-avatar-wrap">
+            <div class="tc-avatar" style="border-color:${m.color}">${avatarHtml}</div>
+          </div>
+          <div class="team-card-name">${m.name}</div>
+          <div class="team-card-role">${m.role || ""}</div>
+          <div class="team-card-pills">
+            <span class="tc-pill tc-pill-blue">${active.length} active</span>
+            ${blocked ? `<span class="tc-pill tc-pill-red">${blocked} blocked</span>` : ""}
+            ${done    ? `<span class="tc-pill tc-pill-green">${done} done</span>` : ""}
+          </div>
+          <div class="team-card-tasks">
+            ${active.length
+              ? active.slice(0,3).map(t => `
+                  <div class="team-card-task">
+                    <span class="tc-task-dot"></span>
+                    <div>
+                      <div class="tc-task-name">${t.name}</div>
+                      <div class="tc-task-proj">${t.project || ""}</div>
+                    </div>
+                  </div>`).join("")
+              : `<div class="tc-no-task">No active tasks</div>`}
+          </div>
+        </div>
+      </div>`;
+  }).join("");
+}
+
+// ── Completed ─────────────────────────────────────────────────
+function renderCompleted() {
+  const since = new Date(Date.now() - 7 * 864e5).toISOString();
+  const done  = allTasks
+    .filter(t => t.status === "completed" && t.completedAt > since)
+    .sort((a, b) => b.completedAt.localeCompare(a.completedAt));
+
+  const el = document.getElementById("done-list");
+  if (!done.length) {
+    el.innerHTML = '<p class="empty-state">No completions this week yet — keep going!</p>';
+    return;
+  }
+  el.innerHTML = done.map(t => {
+    const m    = TEAM.find(x => x.id === t.assignee);
+    const date = new Date(t.completedAt).toLocaleDateString("en-IN", { weekday: "short", month: "short", day: "numeric" });
+    return dashCard(t, "✓", m?.color || "var(--ok)", `Completed ${date}`);
+  }).join("");
+}
+
+// ── Alerts ────────────────────────────────────────────────────
+function renderAlerts() {
+  const alerts = allTasks.filter(t => {
+    const s = computeStatus(t, allTasks);
+    return s === "delayed" || s === "blocked";
+  }).sort((a, b) => {
+    const order = { blocked: 0, delayed: 1 };
+    return (order[computeStatus(a, allTasks)] ?? 2) - (order[computeStatus(b, allTasks)] ?? 2);
+  });
+
+  const el = document.getElementById("alert-list");
+  if (!alerts.length) {
+    el.innerHTML = '<p class="empty-state">✓ All clear — no delays or blocks right now</p>';
+    return;
+  }
+  el.innerHTML = alerts.map(t => {
+    const s     = computeStatus(t, allTasks);
+    const color = s === "blocked" ? "var(--danger)" : "var(--warn)";
+    const icon  = s === "blocked" ? "⊘" : "⚠";
+    const extra = s === "blocked" ? "Blocked by dependency" : `Overdue · was due ${t.endDate}`;
+    return dashCard(t, icon, color, extra);
+  }).join("");
+}
+
+function dashCard(t, icon, color, extraMeta) {
+  const m    = TEAM.find(x => x.id === t.assignee);
+  const meta = [m?.name, t.project, extraMeta].filter(Boolean).join("  ·  ");
+  return `
+    <div class="dash-card" style="--card-color:${color}">
+      <div class="dash-card-icon">${icon}</div>
+      <div class="dash-card-body">
+        <div class="dash-card-name">${t.name}</div>
+        <div class="dash-card-meta">${meta}</div>
+      </div>
+      <span class="priority-badge priority-${t.priority || "medium"}">${t.priority || "medium"}</span>
+    </div>`;
+}
+
+// ── Wake lock ─────────────────────────────────────────────────
+async function requestWakeLock() {
+  if ("wakeLock" in navigator) {
+    try { await navigator.wakeLock.request("screen"); } catch (_) {}
+  }
+}
+
+// ── Boot ──────────────────────────────────────────────────────
+updateClock();
+setInterval(updateClock, 30000);
+applyDim();
+setInterval(applyDim, 60000);
+requestWakeLock();
+
+subscribeTeam(() => { updateHeaderStats(); renderView(currentIdx); });
+
+subscribeTasks(tasks => {
+  allTasks = tasks;
+  document.getElementById("sync-dot").className = "dot dot-ok";
+  updateHeaderStats();
+  renderView(currentIdx);
+});
+
+showView(0);

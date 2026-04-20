@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FAB LAB — Tasks</title>
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body class="user-page">
+
+  <!-- ── Auth overlay ────────────────────────────────────────── -->
+  <div id="auth-overlay" class="overlay">
+    <div class="auth-card">
+      <h2>FAB LAB Tasks</h2>
+
+      <div id="auth-loading" class="auth-hint">Connecting…</div>
+
+      <!-- Login -->
+      <div id="login-form" class="hidden">
+        <input id="auth-username" type="text"     placeholder="Username"  autocomplete="username">
+        <input id="auth-pass"     type="password" placeholder="Password"  autocomplete="current-password">
+        <button id="auth-btn">Sign In</button>
+        <p id="auth-err" class="error hidden"></p>
+      </div>
+
+      <!-- First-time setup -->
+      <div id="setup-form" class="hidden">
+        <p class="auth-hint">No accounts yet — create the first admin account.</p>
+        <input id="su-username"    type="text"     placeholder="Username (e.g. akash)"      autocomplete="off">
+        <input id="su-displayname" type="text"     placeholder="Display name (e.g. Akash)"  autocomplete="off">
+        <input id="su-pass"        type="password" placeholder="Password"                   autocomplete="new-password">
+        <input id="su-pass2"       type="password" placeholder="Confirm password"           autocomplete="new-password">
+        <button id="setup-btn">Create Admin Account</button>
+        <p id="setup-err" class="error hidden"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Main app ─────────────────────────────────────────────── -->
+  <div id="app" class="hidden">
+
+    <header class="user-hdr">
+      <div class="user-hdr-left">
+        <span class="logo">FAB LAB</span>
+        <span id="user-greeting" class="user-greeting"></span>
+      </div>
+      <div class="user-hdr-right">
+        <button id="add-task-btn" class="btn btn-primary">+ New Task</button>
+        <button id="logout-btn"   class="btn btn-ghost">Log out</button>
+      </div>
+    </header>
+
+    <div class="tab-bar">
+      <button class="tab active" data-tab="my">My Tasks</button>
+      <button class="tab"        data-tab="all">All Tasks</button>
+      <button class="tab admin-tab hidden" data-tab="settings">⚙ Settings</button>
+    </div>
+
+    <main class="task-main" id="tasks-section">
+      <div id="task-list" class="task-list"></div>
+    </main>
+
+    <main class="task-main hidden" id="settings-section">
+
+      <div class="settings-card">
+        <div class="settings-card-hdr">
+          <h3>Team Members</h3>
+          <button id="add-member-btn" class="btn btn-primary">+ Add Member</button>
+        </div>
+        <div id="member-list"></div>
+      </div>
+
+      <div class="settings-card" style="margin-top:20px">
+        <div class="settings-card-hdr">
+          <h3>User Accounts</h3>
+          <button id="add-user-btn" class="btn btn-primary">+ Add User</button>
+        </div>
+        <div id="user-list"></div>
+      </div>
+
+      <div class="settings-card" style="margin-top:20px">
+        <div class="settings-card-hdr">
+          <h3>Projects</h3>
+          <button id="add-project-btn" class="btn btn-primary">+ Add Project</button>
+        </div>
+        <div id="project-settings-list"></div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- ── Task modal ───────────────────────────────────────────── -->
+  <div id="task-modal" class="modal-overlay hidden">
+    <div class="modal">
+      <div class="modal-hdr">
+        <h2 id="modal-title">New Task</h2>
+        <button class="modal-close" id="modal-close-btn">✕</button>
+      </div>
+      <form id="task-form" class="task-form" autocomplete="off">
+        <div class="form-row">
+          <label for="f-name">Task Name <span class="req">*</span></label>
+          <input id="f-name" type="text" required placeholder="e.g. Design PCB layout">
+        </div>
+        <div class="form-row">
+          <label for="f-project">Project <span class="req">*</span></label>
+          <input id="f-project" type="text" required placeholder="e.g. Laser Cutter v2" list="project-list">
+          <datalist id="project-list"></datalist>
+        </div>
+        <div class="form-row">
+          <label for="f-assignee">Assignee</label>
+          <select id="f-assignee"></select>
+        </div>
+        <div class="form-row two-col">
+          <div>
+            <label for="f-start">Start Date</label>
+            <input id="f-start" type="date" required>
+          </div>
+          <div>
+            <label for="f-end">End Date</label>
+            <input id="f-end" type="date" required>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Priority</label>
+          <div class="priority-group">
+            <label class="radio-label"><input type="radio" name="priority" value="high">   High</label>
+            <label class="radio-label"><input type="radio" name="priority" value="medium" checked> Medium</label>
+            <label class="radio-label"><input type="radio" name="priority" value="low">    Low</label>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Depends On</label>
+          <div id="deps-picker" class="deps-picker"></div>
+        </div>
+        <div class="form-row">
+          <label for="f-notes">Notes</label>
+          <textarea id="f-notes" rows="3" placeholder="Optional notes…"></textarea>
+        </div>
+        <p id="form-err" class="error hidden"></p>
+        <div class="form-actions">
+          <button type="button" id="modal-cancel-btn" class="btn btn-ghost">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Task</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Team member modal ────────────────────────────────────── -->
+  <div id="member-modal" class="modal-overlay hidden">
+    <div class="modal" style="max-width:440px">
+      <div class="modal-hdr">
+        <h2 id="member-modal-title">Add Team Member</h2>
+        <button class="modal-close" id="member-modal-close">✕</button>
+      </div>
+      <form id="member-form" class="task-form" autocomplete="off">
+
+        <!-- Photo upload -->
+        <div class="form-row">
+          <label>Photo</label>
+          <div class="photo-upload-row">
+            <div class="photo-upload-circle" id="photo-circle">
+              <img id="photo-preview-img" class="photo-preview-img hidden" alt="">
+              <span id="photo-initial" class="photo-initial">?</span>
+            </div>
+            <div class="photo-upload-controls">
+              <label for="m-photo" class="btn btn-ghost" style="cursor:pointer;font-size:.82rem">
+                📷 Upload Photo
+              </label>
+              <button type="button" id="photo-remove-btn" class="btn btn-ghost hidden" style="font-size:.82rem">Remove</button>
+              <input id="m-photo" type="file" accept="image/*" style="display:none">
+            </div>
+          </div>
+          <span class="form-sub">JPG or PNG — automatically cropped to a square</span>
+        </div>
+
+        <div class="form-row">
+          <label for="m-name">Name <span class="req">*</span></label>
+          <input id="m-name" type="text" required placeholder="e.g. Akash">
+        </div>
+        <div class="form-row">
+          <label for="m-role">Role</label>
+          <input id="m-role" type="text" placeholder="e.g. FAB LAB Engineer">
+        </div>
+        <div class="form-row">
+          <label>Color</label>
+          <div id="color-swatches" class="color-swatches"></div>
+          <input id="m-color" type="hidden" value="#e63946">
+        </div>
+        <p id="member-form-err" class="error hidden"></p>
+        <div class="form-actions">
+          <button type="button" id="member-cancel-btn" class="btn btn-ghost">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Member</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── User account modal ───────────────────────────────────── -->
+  <div id="user-modal" class="modal-overlay hidden">
+    <div class="modal" style="max-width:440px">
+      <div class="modal-hdr">
+        <h2 id="user-modal-title">Add User</h2>
+        <button class="modal-close" id="user-modal-close">✕</button>
+      </div>
+      <form id="user-form" class="task-form" autocomplete="off">
+        <div class="form-row">
+          <label for="u-username">Username <span class="req">*</span></label>
+          <input id="u-username" type="text" required placeholder="e.g. akash" autocomplete="off">
+        </div>
+        <div class="form-row">
+          <label for="u-displayname">Display Name</label>
+          <input id="u-displayname" type="text" placeholder="e.g. Akash Kumar" autocomplete="off">
+        </div>
+        <div class="form-row">
+          <label for="u-password">
+            Password <span id="u-pass-req" class="req">*</span>
+            <span id="u-pass-hint" class="form-sub hidden">(leave blank to keep current)</span>
+          </label>
+          <input id="u-password" type="password" placeholder="Enter password" autocomplete="new-password">
+        </div>
+        <div class="form-row">
+          <label for="u-member">Linked Team Member</label>
+          <select id="u-member">
+            <option value="">— None —</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label class="checkbox-label">
+            <input type="checkbox" id="u-admin">
+            Admin — can manage all tasks, members, and settings
+          </label>
+        </div>
+        <p id="user-form-err" class="error hidden"></p>
+        <div class="form-actions">
+          <button type="button" id="user-cancel-btn" class="btn btn-ghost">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save User</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Project modal ────────────────────────────────────────── -->
+  <div id="project-modal" class="modal-overlay hidden">
+    <div class="modal" style="max-width:400px">
+      <div class="modal-hdr">
+        <h2>Add Project</h2>
+        <button class="modal-close" id="project-modal-close">✕</button>
+      </div>
+      <form id="project-form" class="task-form" autocomplete="off">
+        <div class="form-row">
+          <label for="p-name">Project Name <span class="req">*</span></label>
+          <input id="p-name" type="text" required placeholder="e.g. Laser Cutter v2">
+        </div>
+        <p id="project-form-err" class="error hidden"></p>
+        <div class="form-actions">
+          <button type="button" id="project-cancel-btn" class="btn btn-ghost">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add Project</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/db.js"></script>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/user.js"></script>
+</body>
+</html>

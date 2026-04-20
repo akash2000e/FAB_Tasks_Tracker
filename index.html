@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FAB LAB — Dashboard</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.css">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body class="dashboard">
+
+  <header class="hdr">
+    <div class="hdr-left">
+      <div class="hdr-title">FAB LAB</div>
+      <div class="hdr-subtitle">Progress Tracker</div>
+    </div>
+    <div class="hdr-stats" id="hdr-stats"></div>
+    <div class="hdr-right">
+      <div class="hdr-clock">
+        <div id="clock-time" class="clock-time"></div>
+        <div id="clock-date" class="clock-date"></div>
+      </div>
+      <span id="sync-dot" class="dot dot-warn" title="Connecting…"></span>
+    </div>
+  </header>
+
+  <main class="stage">
+
+    <!-- Gantt view -->
+    <section class="view active" id="v-gantt">
+      <div class="view-top-bar">
+        <div class="view-label">Timeline</div>
+        <div id="gantt-legend" class="gantt-legend"></div>
+      </div>
+      <div id="gantt-wrap"></div>
+    </section>
+
+    <!-- Team view -->
+    <section class="view" id="v-team">
+      <div class="view-label">Team</div>
+      <div id="team-grid" class="team-grid"></div>
+    </section>
+
+    <!-- Completed view -->
+    <section class="view" id="v-done">
+      <div class="view-label">Completed This Week</div>
+      <div id="done-list" class="card-list"></div>
+    </section>
+
+    <!-- Alerts view -->
+    <section class="view" id="v-alert">
+      <div class="view-label">Needs Attention</div>
+      <div id="alert-list" class="card-list"></div>
+    </section>
+
+  </main>
+
+  <footer class="cycle-bar">
+    <div id="cycle-fill"></div>
+  </footer>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.min.js"></script>
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/db.js"></script>
+  <script src="assets/js/dashboard.js"></script>
+</body>
+</html>
