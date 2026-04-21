@@ -124,6 +124,27 @@ async function deleteProject(id) {
   return projectsRef.doc(id).delete();
 }
 
+// ── Categories ────────────────────────────────────────────────
+const categoriesRef = db.collection("categories");
+
+function subscribeCategories(callback) {
+  return categoriesRef.onSnapshot(snap => {
+    const cats = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    if (callback) callback(cats);
+  });
+}
+
+async function addCategory(name) {
+  await _authReady;
+  return categoriesRef.add({ name, createdAt: new Date().toISOString() });
+}
+
+async function deleteCategory(id) {
+  await _authReady;
+  return categoriesRef.doc(id).delete();
+}
+
 // ── Derive effective status (delayed / blocked override stored status)
 function computeStatus(task, allTasks) {
   if (task.status === "completed") return "completed";

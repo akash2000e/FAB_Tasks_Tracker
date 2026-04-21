@@ -177,9 +177,15 @@
           <datalist id="project-list"></datalist>
         </div>
         <div class="form-row">
-          <label for="f-category">Category</label>
-          <input id="f-category" type="text" placeholder="e.g. Design, Fabrication, Software" list="category-list">
-          <datalist id="category-list"></datalist>
+          <label for="f-category">Task Type / Category</label>
+          <select id="f-category">
+            <option value="">— Select type —</option>
+          </select>
+          <div id="f-category-new-row" class="cat-new-row hidden">
+            <input id="f-category-new-input" type="text" placeholder="New category name…" autocomplete="off">
+            <button type="button" id="f-category-save-btn" class="btn btn-primary">Save</button>
+            <button type="button" id="f-category-cancel-btn" class="btn btn-ghost">✕</button>
+          </div>
         </div>
         <div class="form-row">
           <label for="f-assignee">Assignee</label>

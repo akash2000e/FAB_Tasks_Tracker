@@ -2,6 +2,7 @@ let allTasks        = [];
 let backlogItems    = [];
 let allProjects     = [];
 let allUsers        = [];
+let allCategories   = [];
 let editingTaskId   = null;
 let editingMemberId = null;
 let editingUserId   = null;
@@ -9,6 +10,13 @@ let promotingBacklogId = null;
 let activeTab       = "my";
 let activeGroupBy   = "none";
 let currentPhotoB64 = null;
+
+const GROUP_COLORS = ["#3b82f6","#8b5cf6","#10b981","#f59e0b","#ef4444","#06b6d4","#84cc16","#f97316","#ec4899","#14b8a6"];
+function groupColor(name) {
+  let h = 0;
+  for (const c of String(name)) h = ((h << 5) - h) + c.charCodeAt(0);
+  return GROUP_COLORS[Math.abs(h) % GROUP_COLORS.length];
+}
 
 // ── Image resize helper ───────────────────────────────────────
 function resizeImageToBase64(file, size = 160) {
@@ -187,6 +195,41 @@ function showApp() {
     renderTasks();
   });
 
+  // Category select — show inline-add row when "+ Add new" is chosen
+  document.getElementById("f-category").addEventListener("change", function() {
+    const newRow = document.getElementById("f-category-new-row");
+    if (this.value === "__add_new__") {
+      this.value = "";
+      newRow.classList.remove("hidden");
+      document.getElementById("f-category-new-input").focus();
+    } else {
+      newRow.classList.add("hidden");
+    }
+  });
+  document.getElementById("f-category-save-btn").addEventListener("click", async () => {
+    const input = document.getElementById("f-category-new-input");
+    const name  = input.value.trim();
+    if (!name) { input.focus(); return; }
+    const exists = allCategories.find(c => c.name.toLowerCase() === name.toLowerCase());
+    if (exists) {
+      populateCategoryDropdown(exists.name);
+      document.getElementById("f-category-new-row").classList.add("hidden");
+      input.value = "";
+      return;
+    }
+    // Optimistic local update so the dropdown is immediately usable
+    allCategories = [...allCategories, { id: "pending_" + Date.now(), name }]
+      .sort((a, b) => a.name.localeCompare(b.name));
+    populateCategoryDropdown(name);
+    document.getElementById("f-category-new-row").classList.add("hidden");
+    input.value = "";
+    try { await addCategory(name); } catch (err) { showToast("Could not save category: " + err.message, "error"); }
+  });
+  document.getElementById("f-category-cancel-btn").addEventListener("click", () => {
+    document.getElementById("f-category-new-row").classList.add("hidden");
+    document.getElementById("f-category-new-input").value = "";
+  });
+
   // Backlog add
   const backlogInput = document.getElementById("backlog-input");
   document.getElementById("backlog-add-btn").addEventListener("click", () => addBacklogItem());
@@ -237,6 +280,7 @@ function showApp() {
     renderBacklog();
   });
   subscribeProjects(projects => { allProjects = projects; populateProjectDatalist(); renderProjectList(); });
+  subscribeCategories(cats => { allCategories = cats; });
   if (user.isAdmin) {
     subscribeUsers(users => { allUsers = users; renderUserList(); });
   }
@@ -261,28 +305,38 @@ function renderTasks() {
     return;
   }
 
-  // Grouping (admin All Tasks only)
+  // Windowed grouping (admin All Tasks only)
   const canGroup = activeTab === "all" && isAdminUser() && activeGroupBy !== "none";
   if (canGroup) {
     const grouped = {};
     tasks.forEach(t => {
-      let key;
+      let key, color;
       if (activeGroupBy === "category") {
-        key = t.category?.trim() || "Uncategorised";
+        key   = t.category?.trim() || "Uncategorised";
+        color = groupColor(key);
       } else {
         const m = TEAM.find(x => x.id === t.assignee);
-        key = m?.name || "Unassigned";
+        key   = m?.name || "Unassigned";
+        color = m?.color || "var(--tx3)";
       }
-      (grouped[key] = grouped[key] || []).push(t);
+      if (!grouped[key]) grouped[key] = { items: [], color };
+      grouped[key].items.push(t);
     });
+    list.className = "task-windows";
     list.innerHTML = Object.entries(grouped)
       .sort(([a],[b]) => a.localeCompare(b))
-      .map(([label, items]) => `
-        <div class="group-section">
-          <div class="group-header">${esc(label)} <span style="font-weight:400;opacity:.6">(${items.length})</span></div>
-          ${items.map(t => renderTaskItem(t)).join("")}
+      .map(([label, { items, color }]) => `
+        <div class="task-window">
+          <div class="task-window-hdr" style="border-left-color:${color}">
+            <span class="task-window-title">${esc(label)}</span>
+            <span class="task-window-count">${items.length} task${items.length !== 1 ? "s" : ""}</span>
+          </div>
+          <div class="task-window-body">
+            ${items.map(t => renderTaskItem(t)).join("")}
+          </div>
         </div>`).join("");
   } else {
+    list.className = "task-list";
     list.innerHTML = tasks.map(t => renderTaskItem(t)).join("");
   }
 
@@ -405,9 +459,18 @@ function populateProjectDatalist() {
     allProjects.map(p => `<option value="${esc(p.name)}">`).join("");
 }
 
-function populateCategoryDatalist() {
-  const cats = [...new Set(allTasks.map(t => t.category).filter(Boolean))].sort();
-  document.getElementById("category-list").innerHTML = cats.map(c => `<option value="${esc(c)}">`).join("");
+function populateCategoryDropdown(currentValue = "") {
+  const sel = document.getElementById("f-category");
+  if (!sel) return;
+  // If task has a category not yet in managed list, include it so it can be selected
+  const names = allCategories.map(c => c.name);
+  const extraNames = (currentValue && !names.includes(currentValue)) ? [currentValue] : [];
+  const allNames = [...names, ...extraNames].sort((a,b) => a.localeCompare(b));
+  sel.innerHTML =
+    '<option value="">— Select type —</option>' +
+    allNames.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join("") +
+    '<option value="__add_new__">＋ Add new category…</option>';
+  if (currentValue) sel.value = currentValue;
 }
 
 function openTaskModal(taskId = null, prefill = null) {
@@ -419,7 +482,9 @@ function openTaskModal(taskId = null, prefill = null) {
   document.getElementById("task-form").reset();
   document.getElementById("form-err").classList.add("hidden");
   populateAssigneeDropdown();
-  populateCategoryDatalist();
+  populateCategoryDropdown();
+  document.getElementById("f-category-new-row").classList.add("hidden");
+  document.getElementById("f-category-new-input").value = "";
   const me = getCurrentMember();
   if (me) document.getElementById("f-assignee").value = me;
   document.getElementById("f-start").value = prefill?.startDate || todayStr;
@@ -435,9 +500,9 @@ function openTaskModal(taskId = null, prefill = null) {
   if (taskId) {
     const t = allTasks.find(x => x.id === taskId);
     if (t) {
-      document.getElementById("f-name").value     = t.name;
-      document.getElementById("f-project").value  = t.project || "";
-      document.getElementById("f-category").value = t.category || "";
+      document.getElementById("f-name").value = t.name;
+      document.getElementById("f-project").value = t.project || "";
+      populateCategoryDropdown(t.category || "");
       document.getElementById("f-assignee").value = t.assignee;
       document.getElementById("f-start").value    = t.startDate;
       document.getElementById("f-end").value      = t.endDate;
@@ -481,7 +546,8 @@ async function handleTaskSubmit(e) {
   errEl.classList.add("hidden");
   const name      = document.getElementById("f-name").value.trim();
   const project   = document.getElementById("f-project").value.trim();
-  const category  = document.getElementById("f-category").value.trim();
+  const catVal    = document.getElementById("f-category").value;
+  const category  = (catVal && catVal !== "__add_new__") ? catVal : "";
   const assignee  = document.getElementById("f-assignee").value;
   const startDate = document.getElementById("f-start").value;
   const endDate   = document.getElementById("f-end").value;
@@ -952,19 +1018,19 @@ function renderBacklog() {
   const list = document.getElementById("backlog-list");
   if (!list) return;
   if (!backlogItems.length) {
-    list.innerHTML = '<div class="backlog-empty">No ideas yet — type one above and hit Add!</div>';
+    list.innerHTML = '<div class="backlog-empty">No ideas captured yet — type one above and press Add!</div>';
     return;
   }
   list.innerHTML = backlogItems.map(t => `
-    <div class="backlog-item">
-      <div class="backlog-item-body">
-        <div class="backlog-item-name">${esc(t.name)}</div>
-        ${t.notes ? `<div class="backlog-item-notes">${esc(t.notes)}</div>` : ""}
+    <div class="backlog-card">
+      <div class="backlog-card-body">
+        <div class="backlog-card-name">${esc(t.name)}</div>
+        ${t.notes ? `<div class="backlog-card-notes">${esc(t.notes)}</div>` : ""}
       </div>
-      <div class="backlog-item-actions">
-        <button class="act-btn act-start" data-action="bl-sprint" data-id="${t.id}" title="Plan for this week's sprint">⚡ This Sprint</button>
-        <button class="act-btn"          data-action="bl-assign" data-id="${t.id}" title="Assign and plan">→ Assign</button>
-        <button class="act-btn act-del"  data-action="bl-delete" data-id="${t.id}">✕</button>
+      <div class="backlog-card-footer">
+        <button class="btn btn-primary"  data-action="bl-sprint" data-id="${t.id}">⚡ Add to This Sprint</button>
+        <button class="btn btn-ghost"    data-action="bl-assign" data-id="${t.id}">→ Assign &amp; Plan</button>
+        <button class="act-btn act-del"  data-action="bl-delete" data-id="${t.id}" style="margin-left:auto">✕ Remove</button>
       </div>
     </div>`).join("");
   list.querySelectorAll("[data-action]").forEach(btn => btn.addEventListener("click", () => {
