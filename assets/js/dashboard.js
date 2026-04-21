@@ -1,12 +1,10 @@
 const VIEWS = [
-  { id: "v-gantt", ms: 35000 },
-  { id: "v-team",  ms: 20000 },
-  { id: "v-done",  ms: 15000 },
-  { id: "v-alert", ms: 15000 },
+  { id: "v-gantt-month", ms: 35000 },
+  { id: "v-gantt-week",  ms: 35000 },
+  { id: "v-team",        ms: 20000 },
+  { id: "v-done",        ms: 15000 },
+  { id: "v-alert",       ms: 15000 },
 ];
-
-const GANTT_MODES = ["Week", "Month"];
-let ganttModeIdx = 0;
 
 let allTasks   = [];
 let currentIdx = 0;
@@ -79,8 +77,7 @@ function showView(idx) {
   clearTimeout(cycleTimer);
   cycleTimer = setTimeout(() => {
     let next = (idx + 1) % VIEWS.length;
-    if (next === 3 && !hasAlerts()) next = 0;
-    if (next === 0) ganttModeIdx = (ganttModeIdx + 1) % GANTT_MODES.length;
+    if (next === 4 && !hasAlerts()) next = 0;
     currentIdx = next;
     showView(next);
   }, VIEWS[idx].ms);
@@ -88,15 +85,17 @@ function showView(idx) {
 
 function renderView(idx) {
   const id = VIEWS[idx].id;
-  if (id === "v-gantt") renderGantt();
-  if (id === "v-team")  renderTeam();
-  if (id === "v-done")  renderCompleted();
-  if (id === "v-alert") renderAlerts();
+  if (id === "v-gantt-month") renderGantt("Month", "gantt-legend-month", "gantt-wrap-month");
+  if (id === "v-gantt-week")  renderGantt("Week",  "gantt-legend-week",  "gantt-wrap-week");
+  if (id === "v-team")        renderTeam();
+  if (id === "v-done")        renderCompleted();
+  if (id === "v-alert")       renderAlerts();
 }
 
 // ── Gantt ─────────────────────────────────────────────────────
-function renderGanttLegend() {
-  const el = document.getElementById("gantt-legend");
+function renderGanttLegend(legendId) {
+  const el = document.getElementById(legendId);
+  if (!el) return;
   if (!TEAM.length) { el.innerHTML = ""; return; }
   el.innerHTML = TEAM.map(m => `
     <div class="legend-item">
@@ -105,37 +104,54 @@ function renderGanttLegend() {
     </div>`).join("");
 }
 
-function renderGantt() {
-  renderGanttLegend();
-  const wrap  = document.getElementById("gantt-wrap");
-  const tasks = allTasks.filter(t => t.startDate && t.endDate && t.status !== "completed");
-
-  if (!tasks.length) {
-    wrap.innerHTML = '<p class="empty-state" style="padding-top:80px">No active tasks yet</p>';
-    return;
-  }
+function renderGantt(mode, legendId, wrapId) {
+  renderGanttLegend(legendId);
+  const wrap  = document.getElementById(wrapId);
+  if (!wrap) return;
 
   const statusProgress = { completed: 100, in_progress: 60, not_started: 0, blocked: 0, delayed: 30 };
+
+  // For weekly view show only tasks active within the next 7 days + ongoing
+  const todayStr = new Date().toISOString().split("T")[0];
+  const weekEnd  = new Date(Date.now() + 7 * 864e5).toISOString().split("T")[0];
+
+  const tasks = allTasks.filter(t => {
+    if (!t.startDate || !t.endDate) return false;
+    if (mode === "Week") {
+      return t.endDate >= todayStr && t.startDate <= weekEnd;
+    }
+    return true;
+  });
+
+  if (!tasks.length) {
+    const msg = mode === "Week"
+      ? "No tasks scheduled this week"
+      : "No tasks yet";
+    wrap.innerHTML = `<p class="empty-state" style="padding-top:80px">${msg}</p>`;
+    return;
+  }
 
   const ganttTasks = tasks.map(t => {
     const member = TEAM.find(m => m.id === t.assignee);
     const s      = computeStatus(t, allTasks);
+    const isDone = t.status === "completed";
     return {
       id:           t.id,
-      name:         t.name,
+      name:         isDone ? `✓ ${t.name}` : t.name,
       start:        t.startDate,
       end:          t.endDate,
       progress:     statusProgress[s] ?? 0,
       dependencies: (t.dependsOn || []).join(", "),
-      custom_class: member ? `assignee-${member.id}` : "assignee-none",
+      custom_class: isDone ? "task-completed" : (member ? `assignee-${member.id}` : "assignee-none"),
     };
   });
 
-  wrap.innerHTML = '<svg id="gantt-svg"></svg>';
+  const svgId = `gantt-svg-${mode.toLowerCase()}`;
+  wrap.innerHTML = `<svg id="${svgId}"></svg>`;
 
   try {
-    new Gantt("#gantt-svg", ganttTasks, {
-      view_mode:   GANTT_MODES[ganttModeIdx],
+    new Gantt(`#${svgId}`, ganttTasks, {
+      view_mode:   mode,
       bar_height:  38,
       padding:     16,
       date_format: "YYYY-MM-DD",

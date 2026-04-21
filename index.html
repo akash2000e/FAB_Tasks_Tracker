@@ -26,13 +26,22 @@
 
   <main class="stage">
 
-    <!-- Gantt view -->
-    <section class="view active" id="v-gantt">
+    <!-- Monthly Gantt view -->
+    <section class="view active" id="v-gantt-month">
       <div class="view-top-bar">
-        <div class="view-label">Timeline</div>
-        <div id="gantt-legend" class="gantt-legend"></div>
+        <div class="view-label">Monthly Timeline</div>
+        <div id="gantt-legend-month" class="gantt-legend"></div>
       </div>
-      <div id="gantt-wrap"></div>
+      <div id="gantt-wrap-month"></div>
+    </section>
+
+    <!-- Weekly Gantt view -->
+    <section class="view" id="v-gantt-week">
+      <div class="view-top-bar">
+        <div class="view-label">Weekly Timeline</div>
+        <div id="gantt-legend-week" class="gantt-legend"></div>
+      </div>
+      <div id="gantt-wrap-week"></div>
     </section>
 
     <!-- Team view -->

@@ -53,11 +53,60 @@
     <div class="tab-bar">
       <button class="tab active" data-tab="my">My Tasks</button>
       <button class="tab"        data-tab="all">All Tasks</button>
+      <button class="tab"        data-tab="profile">Profile</button>
       <button class="tab admin-tab hidden" data-tab="settings">⚙ Settings</button>
     </div>
 
     <main class="task-main" id="tasks-section">
       <div id="task-list" class="task-list"></div>
+    </main>
+
+    <!-- ── Profile section ────────────────────────────────────── -->
+    <main class="task-main hidden" id="profile-section">
+
+      <div class="settings-card">
+        <div class="settings-card-hdr"><h3>My Profile</h3></div>
+
+        <!-- Photo row — only shown when user has a linked team member -->
+        <div id="profile-photo-row" class="hidden" style="margin-bottom:20px">
+          <div class="form-row">
+            <label class="form-lbl">Profile Photo</label>
+            <div class="photo-upload-row">
+              <div class="photo-upload-circle" id="profile-photo-circle">
+                <img id="profile-photo-preview" class="photo-preview-img hidden" alt="">
+                <span id="profile-photo-initial" class="photo-initial">?</span>
+              </div>
+              <div class="photo-upload-controls">
+                <label for="profile-photo-input" class="btn btn-ghost" style="cursor:pointer;font-size:.82rem">
+                  📷 Upload Photo
+                </label>
+                <button type="button" id="profile-photo-remove" class="btn btn-ghost hidden" style="font-size:.82rem">Remove</button>
+                <input id="profile-photo-input" type="file" accept="image/*" style="display:none">
+              </div>
+            </div>
+            <span class="form-sub">JPG or PNG — automatically cropped to a square</span>
+          </div>
+        </div>
+
+        <form id="profile-form" class="task-form" autocomplete="off" style="padding:0">
+          <div class="form-row">
+            <label for="prof-displayname">Display Name</label>
+            <input id="prof-displayname" type="text" placeholder="e.g. Akash Kumar" autocomplete="off">
+          </div>
+          <div class="form-row">
+            <label>Change Password <span class="form-sub" style="margin-left:4px">(leave blank to keep current)</span></label>
+            <input id="prof-current-pass" type="password" placeholder="Current password" autocomplete="current-password">
+            <input id="prof-new-pass" type="password" placeholder="New password" autocomplete="new-password" style="margin-top:8px">
+            <input id="prof-confirm-pass" type="password" placeholder="Confirm new password" autocomplete="new-password" style="margin-top:8px">
+          </div>
+          <p id="profile-form-err" class="error hidden"></p>
+          <p id="profile-form-ok"  class="hidden" style="color:var(--ok);font-size:.85rem"></p>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+          </div>
+        </form>
+      </div>
+
     </main>
 
     <main class="task-main hidden" id="settings-section">

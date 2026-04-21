@@ -157,10 +157,14 @@ function showApp() {
       t.classList.add("active");
       activeTab = t.dataset.tab;
       const isSettings = activeTab === "settings";
-      document.getElementById("tasks-section").classList.toggle("hidden", isSettings);
+      const isProfile  = activeTab === "profile";
+      const isTasks    = !isSettings && !isProfile;
+      document.getElementById("tasks-section").classList.toggle("hidden", !isTasks);
       document.getElementById("settings-section").classList.toggle("hidden", !isSettings);
-      document.getElementById("add-task-btn").style.display = isSettings ? "none" : "";
-      if (!isSettings) renderTasks();
+      document.getElementById("profile-section").classList.toggle("hidden", !isProfile);
+      document.getElementById("add-task-btn").style.display = isTasks ? "" : "none";
+      if (isTasks)   renderTasks();
+      if (isProfile) renderProfile();
     })
   );
 
@@ -194,8 +198,14 @@ function showApp() {
   document.getElementById("project-modal").addEventListener("click", e => { if (e.target.id === "project-modal") closeProjectModal(); });
   document.getElementById("project-form").addEventListener("submit", handleProjectSubmit);
 
+  // Profile form
+  document.getElementById("profile-form").addEventListener("submit", handleProfileSubmit);
+
   // Subscriptions
-  subscribeTeam(() => { populateAssigneeDropdown(); renderTasks(); renderMemberList(); });
+  subscribeTeam(() => {
+    populateAssigneeDropdown(); renderTasks(); renderMemberList();
+    if (activeTab === "profile") renderProfile();
+  });
   subscribeTasks(tasks => { allTasks = tasks; renderTasks(); });
   subscribeProjects(projects => { allProjects = projects; populateProjectDatalist(); renderProjectList(); });
   if (user.isAdmin) {
@@ -207,14 +217,12 @@ function showApp() {
 function renderTasks() {
   if (activeTab === "settings") return;
   const list    = document.getElementById("task-list");
-  const me      = getCurrentMember();
-  const weekAgo = new Date(Date.now() - 7*864e5).toISOString();
-  const order   = { blocked:0, delayed:1, in_progress:2, not_started:3, completed:4 };
+  const me    = getCurrentMember();
+  const order = { blocked:0, delayed:1, in_progress:2, not_started:3, completed:4 };
 
   const tasks = allTasks
     .map(t => ({ ...t, _s: computeStatus(t, allTasks) }))
     .filter(t => activeTab === "my" ? t.assignee === me : true)
-    .filter(t => t._s !== "completed" || t.completedAt > weekAgo)
     .sort((a,b) => (order[a._s]??5) - (order[b._s]??5));
 
   if (!tasks.length) {
@@ -245,7 +253,7 @@ function renderTaskItem(t) {
   const meta = [m?.name, t.project, `${t.startDate} → ${t.endDate}`].filter(Boolean).join("  ·  ");
 
   return `
-    <div class="task-item" style="border-color:${color}">
+    <div class="task-item${s === "completed" ? " task-done" : ""}" style="border-color:${color}">
       <div class="task-item-body">
         <div class="task-item-top">
           <span class="task-item-name">${esc(t.name)}</span>
@@ -267,8 +275,13 @@ function renderTaskItem(t) {
           ${!editable ? noEditTip : ""}>
           ✓ Done
         </button>
+        <button class="act-btn act-undo" data-action="undo" data-id="${t.id}"
+          ${s==="completed" && editable ? "" : "disabled"}
+          ${!editable ? noEditTip : ""}>
+          ↩ Undo
+        </button>
         <button class="act-btn" data-action="edit" data-id="${t.id}"
-          ${editable ? "" : `disabled ${noEditTip}`}>
+          ${editable && s !== "completed" ? "" : `disabled ${noEditTip}`}>
           ✎ Edit
         </button>
         <button class="act-btn act-del" data-action="delete" data-id="${t.id}"
@@ -283,6 +296,7 @@ function renderTaskItem(t) {
 function dispatchTask(action, id) {
   if (action === "start")  handleStart(id);
   if (action === "done")   handleDone(id);
+  if (action === "undo")   handleUndo(id);
   if (action === "edit")   openTaskModal(id);
   if (action === "delete") handleDelete(id);
 }
@@ -305,6 +319,13 @@ async function handleDone(id) {
       if (allDone) showToast(`Unblocked: "${x.name}" can now be started`, "info");
     });
   }, 600);
+}
+
+async function handleUndo(id) {
+  const t = allTasks.find(x => x.id === id);
+  if (!t || !canEditTask(t)) return;
+  await updateTask(id, { status: "not_started", completedAt: null });
+  showToast(`Reopened: ${t.name}`, "info");
 }
 
 async function handleDelete(id) {
@@ -736,6 +757,115 @@ async function handleDeleteProject(id) {
   if (!confirm(`Delete project "${p.name}"?`)) return;
   await deleteProject(id);
   showToast(`"${p.name}" deleted`, "info");
+}
+
+// ── Profile ───────────────────────────────────────────────────
+let profilePhotoB64 = null;
+
+function renderProfile() {
+  const user   = getCurrentUser();
+  const member = TEAM.find(m => m.id === user.memberId);
+
+  document.getElementById("prof-displayname").value = user.displayName || "";
+  document.getElementById("prof-current-pass").value = "";
+  document.getElementById("prof-new-pass").value = "";
+  document.getElementById("prof-confirm-pass").value = "";
+  document.getElementById("profile-form-err").classList.add("hidden");
+  document.getElementById("profile-form-ok").classList.add("hidden");
+
+  const photoRow = document.getElementById("profile-photo-row");
+  if (member) {
+    photoRow.classList.remove("hidden");
+    profilePhotoB64 = member.photo || null;
+    _setProfilePhotoPreview(member.photo || null, member.color, member.name);
+
+    const fileInput = document.getElementById("profile-photo-input");
+    fileInput.onchange = async () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+      try {
+        profilePhotoB64 = await resizeImageToBase64(file);
+        _setProfilePhotoPreview(profilePhotoB64, member.color, member.name);
+      } catch { showToast("Could not process image", "error"); }
+    };
+
+    document.getElementById("profile-photo-remove").onclick = () => {
+      profilePhotoB64 = null;
+      fileInput.value = "";
+      _setProfilePhotoPreview(null, member.color, member.name);
+    };
+  } else {
+    photoRow.classList.add("hidden");
+    profilePhotoB64 = null;
+  }
+}
+
+function _setProfilePhotoPreview(src, color, name) {
+  const img     = document.getElementById("profile-photo-preview");
+  const initial = document.getElementById("profile-photo-initial");
+  const circle  = document.getElementById("profile-photo-circle");
+  const remove  = document.getElementById("profile-photo-remove");
+  circle.style.borderColor = color || "var(--bd)";
+  if (src) {
+    img.src = src; img.classList.remove("hidden");
+    initial.classList.add("hidden"); remove.classList.remove("hidden");
+  } else {
+    img.src = ""; img.classList.add("hidden");
+    initial.textContent = (name || "?").charAt(0).toUpperCase();
+    initial.classList.remove("hidden"); remove.classList.add("hidden");
+  }
+}
+
+async function handleProfileSubmit(e) {
+  e.preventDefault();
+  const errEl = document.getElementById("profile-form-err");
+  const okEl  = document.getElementById("profile-form-ok");
+  errEl.classList.add("hidden"); okEl.classList.add("hidden");
+
+  const user        = getCurrentUser();
+  const displayName = document.getElementById("prof-displayname").value.trim();
+  const currentPass = document.getElementById("prof-current-pass").value;
+  const newPass     = document.getElementById("prof-new-pass").value;
+  const confirmPass = document.getElementById("prof-confirm-pass").value;
+
+  const updates = {};
+  if (displayName) updates.displayName = displayName;
+
+  if (newPass || currentPass) {
+    if (!currentPass) { errEl.textContent = "Enter your current password to change it."; errEl.classList.remove("hidden"); return; }
+    const userDoc = await getUserByUsername(user.username);
+    const hash    = await hashPasswordForStorage(currentPass);
+    if (hash !== userDoc.passwordHash) { errEl.textContent = "Current password is incorrect."; errEl.classList.remove("hidden"); return; }
+    if (!newPass) { errEl.textContent = "Enter a new password."; errEl.classList.remove("hidden"); return; }
+    if (newPass !== confirmPass) { errEl.textContent = "New passwords don't match."; errEl.classList.remove("hidden"); return; }
+    updates.passwordHash = await hashPasswordForStorage(newPass);
+  }
+
+  try {
+    if (Object.keys(updates).length) {
+      await updateUser(user.userId, updates);
+      const s = getSession();
+      if (updates.displayName) s.displayName = updates.displayName;
+      localStorage.setItem("fablab_session", JSON.stringify(s));
+      document.getElementById("user-greeting").innerHTML =
+        `Hi, ${esc(s.displayName || s.username)}` +
+        (s.isAdmin ? ' <span class="admin-badge">Admin</span>' : "");
+    }
+
+    const member = TEAM.find(m => m.id === getCurrentUser().memberId);
+    if (member && profilePhotoB64 !== member.photo) {
+      await updateMember(member.id, { ...member, photo: profilePhotoB64 || "" });
+    }
+
+    document.getElementById("prof-current-pass").value = "";
+    document.getElementById("prof-new-pass").value = "";
+    document.getElementById("prof-confirm-pass").value = "";
+    okEl.textContent = "Profile saved successfully.";
+    okEl.classList.remove("hidden");
+  } catch (err) {
+    errEl.textContent = "Save failed: " + err.message;
+    errEl.classList.remove("hidden");
+  }
 }
 
 // ── Boot ──────────────────────────────────────────────────────

@@ -156,7 +156,8 @@ body.dashboard {
 .legend-name  { font-size: .75rem; font-weight: 500; color: var(--tx2); }
 
 /* ── Gantt wrapper ────────────────────────────────────────── */
-#gantt-wrap {
+#gantt-wrap-month,
+#gantt-wrap-week {
   width: 100%;
   height: calc(100vh - 155px);
   overflow-x: auto; overflow-y: hidden;
@@ -170,7 +171,8 @@ body.dashboard {
 /* Container & SVG background */
 .gantt-container { background: transparent !important; overflow: visible !important; }
 svg.gantt        { background: #111114 !important; }
-#gantt-wrap svg  { background: #111114 !important; }
+#gantt-wrap-month svg,
+#gantt-wrap-week svg  { background: #111114 !important; }
 
 /* Grid background rect */
 .gantt .grid-background { fill: #111114 !important; }
@@ -230,6 +232,11 @@ svg.gantt        { background: #111114 !important; }
 
 /* Resize handles */
 .gantt .handle { fill: rgba(255,255,255,.18) !important; }
+
+/* Completed tasks — greyed out with green tint */
+.task-completed .bar          { fill: #27272a !important; opacity: 1; stroke: #3f3f46 !important; stroke-width: 1; }
+.task-completed .bar-progress { fill: #10b981 !important; opacity: 0.35; }
+.task-completed .bar-label    { fill: rgba(255,255,255,.4) !important; font-weight: 500 !important; }
 
 /* ── Team view ────────────────────────────────────────────── */
 .team-grid {
@@ -442,6 +449,11 @@ body.user-page { min-height: 100vh; }
   padding: 16px 20px; border-left: 4px solid;
   display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap;
 }
+.task-item.task-done {
+  opacity: 0.55;
+  border-left-color: var(--tx3) !important;
+}
+.task-item.task-done .task-item-name { text-decoration: line-through; }
 .task-item-body  { flex: 1; min-width: 200px; }
 .task-item-top   { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
 .task-item-name  { font-size: 1rem; font-weight: 500; }
@@ -458,6 +470,7 @@ body.user-page { min-height: 100vh; }
 .act-btn:disabled { opacity: .3; cursor: not-allowed; }
 .act-start:not(:disabled):hover { background: rgba(59,130,246,.2); border-color: var(--accent); color: var(--accent); }
 .act-done:not(:disabled):hover  { background: rgba(16,185,129,.2); border-color: var(--ok);     color: var(--ok); }
+.act-undo:not(:disabled):hover  { background: rgba(245,158,11,.2); border-color: var(--warn);   color: var(--warn); }
 .act-del:not(:disabled):hover   { background: rgba(239,68,68,.2);  border-color: var(--danger); color: var(--danger); }
 
 /* Modal */
