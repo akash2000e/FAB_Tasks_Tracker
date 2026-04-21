@@ -224,11 +224,12 @@ svg.gantt        { background: #111114 !important; }
   stroke-width: 1.5 !important;
 }
 
-/* Dependency arrows — solid line, no tint */
+/* Dependency arrows — dotted line */
 .gantt .arrow {
-  stroke: #4b5563 !important;
-  fill: #4b5563 !important;
+  stroke: #6b7280 !important;
+  fill: none !important;
   stroke-width: 1.5 !important;
+  stroke-dasharray: 4 4 !important;
 }
 
 /* Resize handles */

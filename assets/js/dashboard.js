@@ -251,18 +251,6 @@ function renderTeam() {
             ${blocked ? `<span class="tc-pill tc-pill-red">${blocked} blocked</span>` : ""}
             ${done    ? `<span class="tc-pill tc-pill-green">${done} done</span>` : ""}
           </div>
-          <div class="team-card-tasks">
-            ${active.length
-              ? active.slice(0,3).map(t => `
-                  <div class="team-card-task">
-                    <span class="tc-task-dot"></span>
-                    <div>
-                      <div class="tc-task-name">${t.name}</div>
-                      <div class="tc-task-proj">${t.project || ""}</div>
-                    </div>
-                  </div>`).join("")
-              : `<div class="tc-no-task">No active tasks</div>`}
-          </div>
         </div>
       </div>`;
   }).join("");
