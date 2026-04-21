@@ -1,11 +1,14 @@
-let allTasks    = [];
-let allProjects = [];
-let allUsers    = [];
+let allTasks        = [];
+let backlogItems    = [];
+let allProjects     = [];
+let allUsers        = [];
 let editingTaskId   = null;
 let editingMemberId = null;
 let editingUserId   = null;
+let promotingBacklogId = null;
 let activeTab       = "my";
-let currentPhotoB64 = null; // photo being edited in member modal
+let activeGroupBy   = "none";
+let currentPhotoB64 = null;
 
 // ── Image resize helper ───────────────────────────────────────
 function resizeImageToBase64(file, size = 160) {
@@ -145,9 +148,9 @@ function showApp() {
   greetEl.innerHTML = `Hi, ${esc(user.displayName || user.username)}` +
     (user.isAdmin ? ' <span class="admin-badge">Admin</span>' : "");
 
-  // Show Settings tab only for admins
+  // Show admin-only tabs
   if (user.isAdmin) {
-    document.querySelector(".admin-tab").classList.remove("hidden");
+    document.querySelectorAll(".admin-tab").forEach(t => t.classList.remove("hidden"));
   }
 
   // Tabs
@@ -158,15 +161,36 @@ function showApp() {
       activeTab = t.dataset.tab;
       const isSettings = activeTab === "settings";
       const isProfile  = activeTab === "profile";
-      const isTasks    = !isSettings && !isProfile;
+      const isBacklog  = activeTab === "backlog";
+      const isTasks    = !isSettings && !isProfile && !isBacklog;
       document.getElementById("tasks-section").classList.toggle("hidden", !isTasks);
       document.getElementById("settings-section").classList.toggle("hidden", !isSettings);
       document.getElementById("profile-section").classList.toggle("hidden", !isProfile);
+      document.getElementById("backlog-section").classList.toggle("hidden", !isBacklog);
       document.getElementById("add-task-btn").style.display = isTasks ? "" : "none";
+      // Show filter bar only for admins on All Tasks tab
+      const filterBar = document.getElementById("admin-filter-bar");
+      if (filterBar) filterBar.classList.toggle("hidden", !(isTasks && activeTab === "all" && user.isAdmin));
       if (isTasks)   renderTasks();
       if (isProfile) renderProfile();
+      if (isBacklog) renderBacklog();
     })
   );
+
+  // Filter bar group-by buttons
+  document.getElementById("admin-filter-bar").addEventListener("click", e => {
+    const btn = e.target.closest(".filter-btn");
+    if (!btn) return;
+    document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    activeGroupBy = btn.dataset.group;
+    renderTasks();
+  });
+
+  // Backlog add
+  const backlogInput = document.getElementById("backlog-input");
+  document.getElementById("backlog-add-btn").addEventListener("click", () => addBacklogItem());
+  backlogInput.addEventListener("keydown", e => { if (e.key === "Enter") addBacklogItem(); });
 
   document.getElementById("add-task-btn").addEventListener("click", () => openTaskModal());
   document.getElementById("logout-btn").addEventListener("click", logout);
@@ -206,7 +230,12 @@ function showApp() {
     populateAssigneeDropdown(); renderTasks(); renderMemberList();
     if (activeTab === "profile") renderProfile();
   });
-  subscribeTasks(tasks => { allTasks = tasks; renderTasks(); });
+  subscribeTasks(tasks => {
+    backlogItems = tasks.filter(t => t.status === "backlog");
+    allTasks     = tasks.filter(t => t.status !== "backlog");
+    renderTasks();
+    renderBacklog();
+  });
   subscribeProjects(projects => { allProjects = projects; populateProjectDatalist(); renderProjectList(); });
   if (user.isAdmin) {
     subscribeUsers(users => { allUsers = users; renderUserList(); });
@@ -215,8 +244,8 @@ function showApp() {
 
 // ── Task list ─────────────────────────────────────────────────
 function renderTasks() {
-  if (activeTab === "settings") return;
-  const list    = document.getElementById("task-list");
+  if (activeTab === "settings" || activeTab === "backlog") return;
+  const list  = document.getElementById("task-list");
   const me    = getCurrentMember();
   const order = { blocked:0, delayed:1, in_progress:2, not_started:3, completed:4 };
 
@@ -232,7 +261,31 @@ function renderTasks() {
     return;
   }
 
-  list.innerHTML = tasks.map(t => renderTaskItem(t)).join("");
+  // Grouping (admin All Tasks only)
+  const canGroup = activeTab === "all" && isAdminUser() && activeGroupBy !== "none";
+  if (canGroup) {
+    const grouped = {};
+    tasks.forEach(t => {
+      let key;
+      if (activeGroupBy === "category") {
+        key = t.category?.trim() || "Uncategorised";
+      } else {
+        const m = TEAM.find(x => x.id === t.assignee);
+        key = m?.name || "Unassigned";
+      }
+      (grouped[key] = grouped[key] || []).push(t);
+    });
+    list.innerHTML = Object.entries(grouped)
+      .sort(([a],[b]) => a.localeCompare(b))
+      .map(([label, items]) => `
+        <div class="group-section">
+          <div class="group-header">${esc(label)} <span style="font-weight:400;opacity:.6">(${items.length})</span></div>
+          ${items.map(t => renderTaskItem(t)).join("")}
+        </div>`).join("");
+  } else {
+    list.innerHTML = tasks.map(t => renderTaskItem(t)).join("");
+  }
+
   list.querySelectorAll("[data-action]").forEach(btn =>
     btn.addEventListener("click", () => dispatchTask(btn.dataset.action, btn.dataset.id))
   );
@@ -259,6 +312,7 @@ function renderTaskItem(t) {
           <span class="task-item-name">${esc(t.name)}</span>
           <span class="status-badge s-${s}">${s.replace("_"," ")}</span>
           <span class="priority-badge priority-${t.priority||"medium"}">${t.priority||"medium"}</span>
+          ${t.category ? `<span class="category-tag">${esc(t.category)}</span>` : ""}
         </div>
         <div class="task-item-meta">${meta}</div>
         ${blockingNames.length ? `<div class="task-item-meta warn">Waiting on: ${blockingNames.map(esc).join(", ")}</div>` : ""}
@@ -351,25 +405,39 @@ function populateProjectDatalist() {
     allProjects.map(p => `<option value="${esc(p.name)}">`).join("");
 }
 
-function openTaskModal(taskId = null) {
-  editingTaskId = taskId;
+function populateCategoryDatalist() {
+  const cats = [...new Set(allTasks.map(t => t.category).filter(Boolean))].sort();
+  document.getElementById("category-list").innerHTML = cats.map(c => `<option value="${esc(c)}">`).join("");
+}
+
+function openTaskModal(taskId = null, prefill = null) {
+  editingTaskId      = taskId;
+  promotingBacklogId = prefill?.backlogId || null;
   const todayStr = today();
-  document.getElementById("modal-title").textContent = taskId ? "Edit Task" : "New Task";
+  document.getElementById("modal-title").textContent =
+    promotingBacklogId ? "Plan Task" : (taskId ? "Edit Task" : "New Task");
   document.getElementById("task-form").reset();
   document.getElementById("form-err").classList.add("hidden");
   populateAssigneeDropdown();
+  populateCategoryDatalist();
   const me = getCurrentMember();
   if (me) document.getElementById("f-assignee").value = me;
-  document.getElementById("f-start").value = todayStr;
-  document.getElementById("f-end").value   = addDays(todayStr, 3);
+  document.getElementById("f-start").value = prefill?.startDate || todayStr;
+  document.getElementById("f-end").value   = prefill?.endDate   || addDays(todayStr, 3);
   populateProjectDatalist();
   buildDepsPicker(taskId);
+
+  if (prefill) {
+    if (prefill.name)  document.getElementById("f-name").value  = prefill.name;
+    if (prefill.notes) document.getElementById("f-notes").value = prefill.notes;
+  }
 
   if (taskId) {
     const t = allTasks.find(x => x.id === taskId);
     if (t) {
       document.getElementById("f-name").value     = t.name;
       document.getElementById("f-project").value  = t.project || "";
+      document.getElementById("f-category").value = t.category || "";
       document.getElementById("f-assignee").value = t.assignee;
       document.getElementById("f-start").value    = t.startDate;
       document.getElementById("f-end").value      = t.endDate;
@@ -401,7 +469,11 @@ function buildDepsPicker(excludeId) {
   }).join("");
 }
 
-function closeTaskModal() { document.getElementById("task-modal").classList.add("hidden"); editingTaskId = null; }
+function closeTaskModal() {
+  document.getElementById("task-modal").classList.add("hidden");
+  editingTaskId = null;
+  promotingBacklogId = null;
+}
 
 async function handleTaskSubmit(e) {
   e.preventDefault();
@@ -409,6 +481,7 @@ async function handleTaskSubmit(e) {
   errEl.classList.add("hidden");
   const name      = document.getElementById("f-name").value.trim();
   const project   = document.getElementById("f-project").value.trim();
+  const category  = document.getElementById("f-category").value.trim();
   const assignee  = document.getElementById("f-assignee").value;
   const startDate = document.getElementById("f-start").value;
   const endDate   = document.getElementById("f-end").value;
@@ -419,12 +492,17 @@ async function handleTaskSubmit(e) {
   if (!name || !project) { errEl.textContent = "Task name and project are required."; errEl.classList.remove("hidden"); return; }
   if (endDate < startDate) { errEl.textContent = "End date must be on or after start date."; errEl.classList.remove("hidden"); return; }
 
+  const payload = { name, project, category, assignee, startDate, endDate, priority, notes, dependsOn };
+
   try {
-    if (editingTaskId) {
-      await updateTask(editingTaskId, { name, project, assignee, startDate, endDate, priority, notes, dependsOn });
+    if (promotingBacklogId) {
+      await updateTask(promotingBacklogId, { ...payload, status: "not_started" });
+      showToast("Task planned from backlog", "success");
+    } else if (editingTaskId) {
+      await updateTask(editingTaskId, payload);
       showToast("Task updated", "success");
     } else {
-      await addTask({ name, project, assignee, startDate, endDate, priority, notes, dependsOn, status: "not_started" });
+      await addTask({ ...payload, status: "not_started" });
       showToast("Task added", "success");
     }
     closeTaskModal();
@@ -866,6 +944,82 @@ async function handleProfileSubmit(e) {
     errEl.textContent = "Save failed: " + err.message;
     errEl.classList.remove("hidden");
   }
+}
+
+// ── Backlog ───────────────────────────────────────────────────
+function renderBacklog() {
+  if (activeTab !== "backlog") return;
+  const list = document.getElementById("backlog-list");
+  if (!list) return;
+  if (!backlogItems.length) {
+    list.innerHTML = '<div class="backlog-empty">No ideas yet — type one above and hit Add!</div>';
+    return;
+  }
+  list.innerHTML = backlogItems.map(t => `
+    <div class="backlog-item">
+      <div class="backlog-item-body">
+        <div class="backlog-item-name">${esc(t.name)}</div>
+        ${t.notes ? `<div class="backlog-item-notes">${esc(t.notes)}</div>` : ""}
+      </div>
+      <div class="backlog-item-actions">
+        <button class="act-btn act-start" data-action="bl-sprint" data-id="${t.id}" title="Plan for this week's sprint">⚡ This Sprint</button>
+        <button class="act-btn"          data-action="bl-assign" data-id="${t.id}" title="Assign and plan">→ Assign</button>
+        <button class="act-btn act-del"  data-action="bl-delete" data-id="${t.id}">✕</button>
+      </div>
+    </div>`).join("");
+  list.querySelectorAll("[data-action]").forEach(btn => btn.addEventListener("click", () => {
+    const id = btn.dataset.id;
+    if (btn.dataset.action === "bl-sprint")  promoteBacklog(id, true);
+    if (btn.dataset.action === "bl-assign")  promoteBacklog(id, false);
+    if (btn.dataset.action === "bl-delete")  deleteBacklogItem(id);
+  }));
+}
+
+async function addBacklogItem() {
+  const input = document.getElementById("backlog-input");
+  const notes = document.getElementById("backlog-notes-input");
+  const name  = input.value.trim();
+  if (!name) { input.focus(); return; }
+  try {
+    await addTask({ name, notes: notes.value.trim(), status: "backlog", project: "", category: "", assignee: "", startDate: "", endDate: "", priority: "medium", dependsOn: [] });
+    input.value = "";
+    notes.value = "";
+    input.focus();
+  } catch (err) {
+    showToast("Could not save idea: " + err.message, "error");
+  }
+}
+
+async function deleteBacklogItem(id) {
+  const t = backlogItems.find(x => x.id === id);
+  if (!t) return;
+  if (!confirm(`Remove "${t.name}" from backlog?`)) return;
+  await deleteTask(id);
+}
+
+function getSprintDates() {
+  const now  = new Date();
+  const day  = now.getDay();
+  const mon  = new Date(now);
+  mon.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
+  const fri  = new Date(mon);
+  fri.setDate(mon.getDate() + 4);
+  return {
+    startDate: mon.toISOString().split("T")[0],
+    endDate:   fri.toISOString().split("T")[0],
+  };
+}
+
+function promoteBacklog(id, sprintMode) {
+  const t = backlogItems.find(x => x.id === id);
+  if (!t) return;
+  const prefill = { backlogId: id, name: t.name, notes: t.notes || "" };
+  if (sprintMode) {
+    const { startDate, endDate } = getSprintDates();
+    prefill.startDate = startDate;
+    prefill.endDate   = endDate;
+  }
+  openTaskModal(null, prefill);
 }
 
 // ── Boot ──────────────────────────────────────────────────────

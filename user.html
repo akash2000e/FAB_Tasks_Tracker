@@ -54,11 +54,32 @@
       <button class="tab active" data-tab="my">My Tasks</button>
       <button class="tab"        data-tab="all">All Tasks</button>
       <button class="tab"        data-tab="profile">Profile</button>
+      <button class="tab admin-tab hidden" data-tab="backlog">Backlog</button>
       <button class="tab admin-tab hidden" data-tab="settings">⚙ Settings</button>
     </div>
 
     <main class="task-main" id="tasks-section">
+      <div id="admin-filter-bar" class="filter-bar hidden">
+        <span class="filter-label">Group by</span>
+        <div class="filter-btns">
+          <button class="filter-btn active" data-group="none">None</button>
+          <button class="filter-btn" data-group="category">Category</button>
+          <button class="filter-btn" data-group="person">Person</button>
+        </div>
+      </div>
       <div id="task-list" class="task-list"></div>
+    </main>
+
+    <!-- ── Backlog section (admin only) ────────────────────────── -->
+    <main class="task-main hidden" id="backlog-section">
+      <div class="backlog-add-card">
+        <div class="backlog-add-row">
+          <input id="backlog-input" type="text" placeholder="What needs to be done? Capture an idea…" autocomplete="off">
+          <button id="backlog-add-btn" class="btn btn-primary">+ Add</button>
+        </div>
+        <input id="backlog-notes-input" class="backlog-notes-input" type="text" placeholder="Notes (optional)" autocomplete="off">
+      </div>
+      <div id="backlog-list" class="backlog-list"></div>
     </main>
 
     <!-- ── Profile section ────────────────────────────────────── -->
@@ -154,6 +175,11 @@
           <label for="f-project">Project <span class="req">*</span></label>
           <input id="f-project" type="text" required placeholder="e.g. Laser Cutter v2" list="project-list">
           <datalist id="project-list"></datalist>
+        </div>
+        <div class="form-row">
+          <label for="f-category">Category</label>
+          <input id="f-category" type="text" placeholder="e.g. Design, Fabrication, Software" list="category-list">
+          <datalist id="category-list"></datalist>
         </div>
         <div class="form-row">
           <label for="f-assignee">Assignee</label>

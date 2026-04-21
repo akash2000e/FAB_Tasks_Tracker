@@ -333,7 +333,7 @@ requestWakeLock();
 subscribeTeam(() => { updateHeaderStats(); renderView(currentIdx); });
 
 subscribeTasks(tasks => {
-  allTasks = tasks;
+  allTasks = tasks.filter(t => t.status !== "backlog");
   document.getElementById("sync-dot").className = "dot dot-ok";
   updateHeaderStats();
   renderView(currentIdx);
