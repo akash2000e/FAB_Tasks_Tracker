@@ -176,9 +176,9 @@ function showApp() {
       document.getElementById("profile-section").classList.toggle("hidden", !isProfile);
       document.getElementById("backlog-section").classList.toggle("hidden", !isBacklog);
       document.getElementById("add-task-btn").style.display = isTasks ? "" : "none";
-      // Show filter bar only for admins on All Tasks tab
+      // Show filter bar on All Tasks tab for everyone
       const filterBar = document.getElementById("admin-filter-bar");
-      if (filterBar) filterBar.classList.toggle("hidden", !(isTasks && activeTab === "all" && user.isAdmin));
+      if (filterBar) filterBar.classList.toggle("hidden", !(isTasks && activeTab === "all"));
       if (isTasks)   renderTasks();
       if (isProfile) renderProfile();
       if (isBacklog) renderBacklog();
@@ -305,8 +305,8 @@ function renderTasks() {
     return;
   }
 
-  // Windowed grouping (admin All Tasks only)
-  const canGroup = activeTab === "all" && isAdminUser() && activeGroupBy !== "none";
+  // Windowed grouping on All Tasks tab
+  const canGroup = activeTab === "all" && activeGroupBy !== "none";
   if (canGroup) {
     const grouped = {};
     tasks.forEach(t => {
