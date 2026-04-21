@@ -12,6 +12,42 @@ let cycleTimer = null;
 let rafId      = null;
 let cycleStart = 0;
 
+// ── Auto-scroll ───────────────────────────────────────────────
+const _scrollers = {};
+
+function startAutoScroll(elementId, speed = 0.45) {
+  stopAutoScroll(elementId);
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  let pauseUntil = 0;
+  const tick = now => {
+    _scrollers[elementId] = requestAnimationFrame(tick);
+    if (now < pauseUntil) return;
+    if (el.scrollHeight <= el.clientHeight + 4) { el.scrollTop = 0; return; }
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 4) {
+      el.scrollTop = 0;
+      pauseUntil = now + 2200;
+      return;
+    }
+    el.scrollTop += speed;
+  };
+  _scrollers[elementId] = requestAnimationFrame(tick);
+}
+
+function stopAutoScroll(elementId) {
+  if (_scrollers[elementId]) {
+    cancelAnimationFrame(_scrollers[elementId]);
+    delete _scrollers[elementId];
+  }
+}
+
+function stopAllAutoScrollers() {
+  Object.keys(_scrollers).forEach(id => {
+    cancelAnimationFrame(_scrollers[id]);
+    delete _scrollers[id];
+  });
+}
+
 // ── Clock ─────────────────────────────────────────────────────
 function updateClock() {
   const now = new Date();
@@ -68,6 +104,7 @@ function hasAlerts() {
 }
 
 function showView(idx) {
+  stopAllAutoScrollers();
   document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
   const target = document.getElementById(VIEWS[idx].id);
   if (target) target.classList.add("active");
@@ -152,13 +189,15 @@ function renderGantt(mode, legendId, wrapId) {
   try {
     new Gantt(`#${svgId}`, ganttTasks, {
       view_mode:   mode,
-      bar_height:  38,
-      padding:     16,
+      bar_height:  20,
+      padding:     8,
       date_format: "YYYY-MM-DD",
       language:    "en",
     });
 
     injectMemberColors();
+    // start slow vertical auto-scroll if content overflows
+    setTimeout(() => startAutoScroll(wrapId, 0.4), 400);
   } catch (e) {
     wrap.innerHTML = '<p class="empty-state" style="padding-top:80px">Could not render chart</p>';
     console.error(e);
@@ -188,7 +227,8 @@ function renderTeam() {
     document.getElementById("team-grid").innerHTML = '<p class="empty-state">No team members yet</p>';
     return;
   }
-  document.getElementById("team-grid").innerHTML = TEAM.map(m => {
+  const teamGrid = document.getElementById("team-grid");
+  teamGrid.innerHTML = TEAM.map(m => {
     const active  = allTasks.filter(t => t.assignee === m.id && computeStatus(t, allTasks) === "in_progress");
     const blocked = allTasks.filter(t => t.assignee === m.id && computeStatus(t, allTasks) === "blocked").length;
     const done    = allTasks.filter(t => t.assignee === m.id && t.status === "completed" &&
@@ -226,6 +266,7 @@ function renderTeam() {
         </div>
       </div>`;
   }).join("");
+  setTimeout(() => startAutoScroll("team-grid", 0.5), 300);
 }
 
 // ── Completed ─────────────────────────────────────────────────
@@ -245,6 +286,7 @@ function renderCompleted() {
     const date = new Date(t.completedAt).toLocaleDateString("en-IN", { weekday: "short", month: "short", day: "numeric" });
     return dashCard(t, "✓", m?.color || "var(--ok)", `Completed ${date}`);
   }).join("");
+  setTimeout(() => startAutoScroll("done-list", 0.5), 300);
 }
 
 // ── Alerts ────────────────────────────────────────────────────
@@ -269,6 +311,7 @@ function renderAlerts() {
     const extra = s === "blocked" ? "Blocked by dependency" : `Overdue · was due ${t.endDate}`;
     return dashCard(t, icon, color, extra);
   }).join("");
+  setTimeout(() => startAutoScroll("alert-list", 0.5), 300);
 }
 
 function dashCard(t, icon, color, extraMeta) {

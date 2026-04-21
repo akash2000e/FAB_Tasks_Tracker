@@ -160,10 +160,11 @@ body.dashboard {
 #gantt-wrap-week {
   width: 100%;
   height: calc(100vh - 155px);
-  overflow-x: auto; overflow-y: hidden;
+  overflow-x: auto; overflow-y: auto;
   background: #111114;
   border-radius: 12px;
   border: 1px solid rgba(255,255,255,.06);
+  scroll-behavior: auto;
 }
 
 /* ── Frappe Gantt dark theme overrides ────────────────────── */
@@ -223,10 +224,10 @@ svg.gantt        { background: #111114 !important; }
   stroke-width: 1.5 !important;
 }
 
-/* Dependency arrows */
+/* Dependency arrows — solid line, no tint */
 .gantt .arrow {
-  stroke: rgba(255,255,255,.22) !important;
-  fill: rgba(255,255,255,.22) !important;
+  stroke: #4b5563 !important;
+  fill: #4b5563 !important;
   stroke-width: 1.5 !important;
 }
 
@@ -243,6 +244,8 @@ svg.gantt        { background: #111114 !important; }
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 16px; align-content: start;
+  max-height: calc(100vh - 150px);
+  overflow-y: auto;
 }
 .team-card {
   background: #111114;
