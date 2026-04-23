@@ -82,11 +82,8 @@ function updateHeaderStats() {
     </div>`).join('<div class="hdr-stat-divider"></div>');
 }
 
-// ── Dim at night ──────────────────────────────────────────────
-function applyDim() {
-  const h = new Date().getHours();
-  document.body.style.filter = (h >= 20 || h < 7) ? "brightness(0.35)" : "";
-}
+// ── Dim at night — disabled ───────────────────────────────────
+function applyDim() {}
 
 // ── Cycle bar ─────────────────────────────────────────────────
 function animateCycleBar(duration) {

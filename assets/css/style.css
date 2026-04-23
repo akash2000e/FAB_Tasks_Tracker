@@ -160,7 +160,7 @@ body.dashboard {
 #gantt-wrap-week {
   width: 100%;
   height: calc(100vh - 155px);
-  overflow-x: auto; overflow-y: auto;
+  overflow-x: hidden; overflow-y: auto;
   background: #111114;
   border-radius: 12px;
   border: 1px solid rgba(255,255,255,.06);
