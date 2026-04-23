@@ -153,22 +153,34 @@ function renderGantt(mode, legendId, wrapId) {
 
   const statusProgress = { completed: 100, in_progress: 60, not_started: 0, blocked: 0, delayed: 30 };
 
-  // For weekly view show only tasks active within the next 7 days + ongoing
-  const todayStr = new Date().toISOString().split("T")[0];
-  const weekEnd  = new Date(Date.now() + 7 * 864e5).toISOString().split("T")[0];
+  // Date ranges for filtering
+  const now   = new Date();
+
+  // This calendar month: 1st → last day
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+    .toISOString().split("T")[0];
+  const monthEnd   = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+    .toISOString().split("T")[0];
+
+  // This calendar week: Monday → Sunday
+  const dow       = now.getDay(); // 0=Sun
+  const diffMon   = dow === 0 ? -6 : 1 - dow;
+  const monDate   = new Date(now); monDate.setDate(now.getDate() + diffMon);
+  const sunDate   = new Date(monDate); sunDate.setDate(monDate.getDate() + 6);
+  const weekStart = monDate.toISOString().split("T")[0];
+  const weekEnd   = sunDate.toISOString().split("T")[0];
 
   const tasks = allTasks.filter(t => {
     if (!t.startDate || !t.endDate) return false;
-    if (mode === "Week") {
-      return t.endDate >= todayStr && t.startDate <= weekEnd;
-    }
+    if (mode === "Week")  return t.startDate <= weekEnd  && t.endDate >= weekStart;
+    if (mode === "Month") return t.startDate <= monthEnd && t.endDate >= monthStart;
     return true;
   });
 
   if (!tasks.length) {
     const msg = mode === "Week"
-      ? "No tasks scheduled this week"
-      : "No tasks yet";
+      ? "No tasks this week"
+      : "No tasks this month";
     wrap.innerHTML = `<p class="empty-state" style="padding-top:80px">${msg}</p>`;
     return;
   }
@@ -201,8 +213,7 @@ function renderGantt(mode, legendId, wrapId) {
     });
 
     injectMemberColors();
-    // horizontal scroll through the timeline, vertical if it overflows in height
-    setTimeout(() => startAutoScroll(wrapId, 0.6, 'h'), 400);
+    setTimeout(() => startAutoScroll(wrapId, 0.4), 400);
   } catch (e) {
     wrap.innerHTML = '<p class="empty-state" style="padding-top:80px">Could not render chart</p>';
     console.error(e);
