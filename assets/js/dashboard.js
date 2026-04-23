@@ -21,20 +21,17 @@ function startAutoScroll(elementId, speed = 0.45, dir = 'v') {
   stopAutoScroll(elementId);
   const el = document.getElementById(elementId);
   if (!el) return;
-  let pauseUntil = 0;
   const sp = dir === 'h' ? 'scrollLeft'  : 'scrollTop';
   const sz = dir === 'h' ? 'scrollWidth' : 'scrollHeight';
   const cl = dir === 'h' ? 'clientWidth' : 'clientHeight';
-  const tick = now => {
+  const tick = () => {
     _scrollers[elementId] = requestAnimationFrame(tick);
-    if (now < pauseUntil) return;
-    if (el[sz] <= el[cl] + 4) { el[sp] = 0; return; }
+    if (el[sz] <= el[cl] + 4) return;
     if (el[sp] + el[cl] >= el[sz] - 4) {
       el[sp] = 0;
-      pauseUntil = now + 2200;
-      return;
+    } else {
+      el[sp] += speed;
     }
-    el[sp] += speed;
   };
   _scrollers[elementId] = requestAnimationFrame(tick);
 }
@@ -82,8 +79,11 @@ function updateHeaderStats() {
     </div>`).join('<div class="hdr-stat-divider"></div>');
 }
 
-// ── Dim at night — disabled ───────────────────────────────────
-function applyDim() {}
+// ── Dim at night (11 PM – 9 AM) ──────────────────────────────
+function applyDim() {
+  const h = new Date().getHours();
+  document.body.style.filter = (h >= 23 || h < 9) ? "brightness(0.35)" : "";
+}
 
 // ── Cycle bar ─────────────────────────────────────────────────
 function animateCycleBar(duration) {
