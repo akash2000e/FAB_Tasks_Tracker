@@ -10,6 +10,13 @@
 </head>
 <body class="dashboard">
 
+  <!-- ── Dashboard loading overlay ──────────────────────────── -->
+  <div id="dash-loader" class="dash-loader">
+    <img src="assets/Images/Logo.svg" alt="" class="dash-loader-spin">
+    <div class="dash-loader-brand">FAB LAB</div>
+    <div class="dash-loader-hint">Connecting…</div>
+  </div>
+
   <header class="hdr">
     <div class="hdr-left">
       <div class="hdr-title">FAB LAB</div>
@@ -61,6 +68,21 @@
     <section class="view" id="v-alert">
       <div class="view-label">Needs Attention</div>
       <div id="alert-list" class="card-list"></div>
+    </section>
+
+    <!-- Logo rotation view -->
+    <section class="view" id="v-logo">
+      <div class="logo-view">
+        <div class="logo-view-scene">
+          <div class="lv-ring lv-ring-1"></div>
+          <div class="lv-ring lv-ring-2"></div>
+          <div class="lv-ring lv-ring-3"></div>
+          <div class="lv-glow"></div>
+          <img src="assets/Images/Logo.svg" alt="" class="lv-img">
+        </div>
+        <div class="lv-title">FAB LAB</div>
+        <div class="lv-sub">Progress Tracker</div>
+      </div>
     </section>
 
   </main>

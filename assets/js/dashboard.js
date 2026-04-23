@@ -4,6 +4,7 @@ const VIEWS = [
   { id: "v-team",        ms: 20000 },
   { id: "v-done",        ms: 15000 },
   { id: "v-alert",       ms: 15000 },
+  { id: "v-logo",        ms: 8000  },
 ];
 
 let allTasks   = [];
@@ -15,21 +16,25 @@ let cycleStart = 0;
 // ── Auto-scroll ───────────────────────────────────────────────
 const _scrollers = {};
 
-function startAutoScroll(elementId, speed = 0.45) {
+// dir: 'v' = vertical (default), 'h' = horizontal
+function startAutoScroll(elementId, speed = 0.45, dir = 'v') {
   stopAutoScroll(elementId);
   const el = document.getElementById(elementId);
   if (!el) return;
   let pauseUntil = 0;
+  const sp = dir === 'h' ? 'scrollLeft'  : 'scrollTop';
+  const sz = dir === 'h' ? 'scrollWidth' : 'scrollHeight';
+  const cl = dir === 'h' ? 'clientWidth' : 'clientHeight';
   const tick = now => {
     _scrollers[elementId] = requestAnimationFrame(tick);
     if (now < pauseUntil) return;
-    if (el.scrollHeight <= el.clientHeight + 4) { el.scrollTop = 0; return; }
-    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 4) {
-      el.scrollTop = 0;
+    if (el[sz] <= el[cl] + 4) { el[sp] = 0; return; }
+    if (el[sp] + el[cl] >= el[sz] - 4) {
+      el[sp] = 0;
       pauseUntil = now + 2200;
       return;
     }
-    el.scrollTop += speed;
+    el[sp] += speed;
   };
   _scrollers[elementId] = requestAnimationFrame(tick);
 }
@@ -196,8 +201,8 @@ function renderGantt(mode, legendId, wrapId) {
     });
 
     injectMemberColors();
-    // start slow vertical auto-scroll if content overflows
-    setTimeout(() => startAutoScroll(wrapId, 0.4), 400);
+    // horizontal scroll through the timeline, vertical if it overflows in height
+    setTimeout(() => startAutoScroll(wrapId, 0.6, 'h'), 400);
   } catch (e) {
     wrap.innerHTML = '<p class="empty-state" style="padding-top:80px">Could not render chart</p>';
     console.error(e);
@@ -323,6 +328,17 @@ async function requestWakeLock() {
   }
 }
 
+// ── Loading overlay ───────────────────────────────────────────
+let _loaderHidden = false;
+function hideDashLoader() {
+  if (_loaderHidden) return;
+  _loaderHidden = true;
+  const el = document.getElementById("dash-loader");
+  if (!el) return;
+  el.classList.add("loaded");
+  setTimeout(() => el.remove(), 850);
+}
+
 // ── Boot ──────────────────────────────────────────────────────
 updateClock();
 setInterval(updateClock, 30000);
@@ -337,6 +353,7 @@ subscribeTasks(tasks => {
   document.getElementById("sync-dot").className = "dot dot-ok";
   updateHeaderStats();
   renderView(currentIdx);
+  hideDashLoader();
 });
 
 showView(0);

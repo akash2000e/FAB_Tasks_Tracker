@@ -641,3 +641,115 @@ body.user-page { min-height: 100vh; }
 .dep-meta { font-size: .73rem; color: var(--tx3); }
 
 .form-actions { display: flex; justify-content: flex-end; gap: 10px; padding-top: 4px; }
+
+/* ═══════════════════════════════════════════════════════════════
+   LOADING OVERLAYS
+═══════════════════════════════════════════════════════════════ */
+
+/* ── Dashboard page loader (index.html) ───────────────────── */
+.dash-loader {
+  position: fixed; inset: 0; z-index: 999;
+  background: #0d0d10;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px;
+  transition: opacity .8s ease;
+}
+.dash-loader.loaded { opacity: 0; pointer-events: none; }
+.dash-loader-spin {
+  width: 76px; height: 76px;
+  animation: logo-spin 1.4s linear infinite;
+}
+.dash-loader-brand {
+  font-size: 1.55rem; font-weight: 800; letter-spacing: .28em; text-transform: uppercase;
+  background: linear-gradient(90deg, #fff 0%, #a1a1aa 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.dash-loader-hint {
+  font-size: .72rem; color: var(--tx3); letter-spacing: .18em; text-transform: uppercase;
+}
+
+/* ── User page loader (user.html) ─────────────────────────── */
+.page-loader {
+  position: fixed; inset: 0; z-index: 200;
+  background: var(--bg);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px;
+  transition: opacity .7s ease;
+}
+.page-loader.loaded { opacity: 0; pointer-events: none; }
+.page-loader-spin {
+  width: 68px; height: 68px;
+  animation: logo-spin 1.4s linear infinite;
+}
+.page-loader-brand {
+  font-size: 1.45rem; font-weight: 800; letter-spacing: .25em; text-transform: uppercase;
+  background: linear-gradient(90deg, #fff 0%, #a1a1aa 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.page-loader-hint {
+  font-size: .72rem; color: var(--tx3); letter-spacing: .18em; text-transform: uppercase;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LOGO ROTATION VIEW  (dashboard cycle)
+═══════════════════════════════════════════════════════════════ */
+#v-logo {
+  display: flex; align-items: center; justify-content: center;
+}
+.logo-view {
+  display: flex; flex-direction: column; align-items: center; gap: 32px;
+}
+.logo-view-scene {
+  position: relative; width: 180px; height: 180px;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* Pulsing rings */
+.lv-ring {
+  position: absolute; top: 50%; left: 50%;
+  border-radius: 50%; border: 1.5px solid rgba(59,130,246,.2);
+  transform: translate(-50%, -50%);
+}
+.lv-ring-1 { width: 230px; height: 230px; animation: lv-ring 3s ease-in-out infinite; }
+.lv-ring-2 { width: 320px; height: 320px; animation: lv-ring 3s ease-in-out infinite .65s; }
+.lv-ring-3 { width: 410px; height: 410px; animation: lv-ring 3s ease-in-out infinite 1.3s; }
+@keyframes lv-ring {
+  0%, 100% { opacity: .1;  transform: translate(-50%, -50%) scale(1); }
+  50%       { opacity: .35; transform: translate(-50%, -50%) scale(1.05); }
+}
+
+/* Blue glow behind the logo */
+.lv-glow {
+  position: absolute; inset: -20px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(59,130,246,.28) 0%, transparent 68%);
+  animation: lv-glow 2.5s ease-in-out infinite alternate;
+}
+@keyframes lv-glow {
+  from { transform: scale(1);    opacity: .65; }
+  to   { transform: scale(1.55); opacity: 1; }
+}
+
+/* Rotating logo image */
+.lv-img {
+  width: 164px; height: 164px;
+  position: relative; z-index: 1;
+  animation: logo-spin 5s linear infinite;
+  filter: drop-shadow(0 0 18px rgba(59,130,246,.65));
+}
+
+/* Title with moving gradient shimmer */
+.lv-title {
+  font-size: clamp(2.2rem, 5vw, 3.6rem); font-weight: 800;
+  letter-spacing: .4em; text-transform: uppercase;
+  background: linear-gradient(120deg, #fff 0%, #a1a1aa 30%, #3b82f6 55%, #818cf8 70%, #fff 100%);
+  background-size: 250% 100%;
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  animation: lv-shimmer 5s linear infinite;
+}
+@keyframes lv-shimmer {
+  0%   { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+.lv-sub {
+  font-size: .8rem; font-weight: 500; letter-spacing: .42em; text-transform: uppercase;
+  color: var(--tx3);
+}

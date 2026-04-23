@@ -80,17 +80,31 @@ function canEditTask(task) {
   return task.assignee === getCurrentMember();
 }
 
+// ── Page loader ───────────────────────────────────────────────
+function hidePageLoader() {
+  const el = document.getElementById("page-loader");
+  if (!el) return;
+  el.classList.add("loaded");
+  setTimeout(() => el.remove(), 750);
+}
+
 // ── Auth & boot ───────────────────────────────────────────────
 async function initAuth() {
+  // Wait for Firebase before doing anything so the loader is visible during connect
+  await _authReady;
+
   // If valid session, go straight to app
-  if (isAuthenticated()) { showApp(); return; }
+  if (isAuthenticated()) {
+    hidePageLoader();
+    showApp();
+    return;
+  }
 
   document.getElementById("auth-overlay").style.display = "flex";
 
-  // Wait for Firebase anonymous auth, then check if any users exist
-  await _authReady;
   const users = await getUsers();
 
+  hidePageLoader();
   document.getElementById("auth-loading").classList.add("hidden");
 
   if (!users.length) {
