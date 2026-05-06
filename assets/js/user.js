@@ -393,7 +393,7 @@ function renderTaskItem(t) {
           ▶ Start
         </button>
         <button class="act-btn act-done" data-action="done" data-id="${t.id}"
-          ${t.status==="in_progress" && editable ? "" : "disabled"}
+          ${(t.status==="in_progress" || s==="delayed") && editable ? "" : "disabled"}
           ${!editable ? noEditTip : ""}>
           ✓ Done
         </button>
