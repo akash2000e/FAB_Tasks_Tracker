@@ -388,12 +388,12 @@ function renderTaskItem(t) {
       </div>
       <div class="task-item-actions">
         <button class="act-btn act-start" data-action="start" data-id="${t.id}"
-          ${s==="not_started" && !blockingNames.length && editable ? "" : "disabled"}
+          ${t.status==="not_started" && !blockingNames.length && editable ? "" : "disabled"}
           ${blockingNames.length ? `title="Waiting on: ${blockingNames.map(esc).join(', ')}"` : (!editable ? noEditTip : "")}>
           ▶ Start
         </button>
         <button class="act-btn act-done" data-action="done" data-id="${t.id}"
-          ${s==="in_progress" && editable ? "" : "disabled"}
+          ${t.status==="in_progress" && editable ? "" : "disabled"}
           ${!editable ? noEditTip : ""}>
           ✓ Done
         </button>
@@ -425,7 +425,7 @@ function dispatchTask(action, id) {
 
 async function handleStart(id) {
   const t = allTasks.find(x => x.id === id);
-  if (!t || !canEditTask(t) || computeStatus(t, allTasks) !== "not_started") return;
+  if (!t || !canEditTask(t) || t.status !== "not_started" || computeStatus(t, allTasks) === "blocked") return;
   await updateTask(id, { status: "in_progress" });
   showToast(`Started: ${t.name}`, "info");
 }
